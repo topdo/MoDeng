@@ -3,44 +3,47 @@
 """ 本脚本是用来存储一些与stk息息相关的子函数"""
 from pylab import *
 # from Config.GlobalSetting import g_total_stk_info_mysql
-from DataSource.Data_Sub import get_k_data_JQ
+from DataSource.Data_Sub import get_k_data_JQ, add_stk_index_to_df
+from DataSource.auth_info import jq_login, logout
+from Function.GUI.GUI_main.opt_record_class import OptRecord
+from Function.GUI.GUI_main.reseau_judge_class import ReseauJudge
+from Global_Value.file_dir import opt_record_file_url
 from SDK.Normalize import normal01
 from SDK.PlotOptSub import addXticklabel
 import tushare as ts
-
+import pandas as pd
 
 def code2name_dict():
-	"""
+    """
 	获取stk的code转name字典
 	:return:
 	"""
-	df = ts.get_stock_basics().reset_index()
-	return dict(df.loc[:, ['code', 'name']].to_dict(orient='split')['data'])
+    df = ts.get_stock_basics().reset_index()
+    return dict(df.loc[:, ['code', 'name']].to_dict(orient='split')['data'])
 
 
 def get_name_by_stk_code(stk_info_df, stk_code):
-
-	"""
+    """
 	g_total_stk_info_mysql[g_total_stk_info_mysql['code']=='300508']['name'].values[0]
 	根据代码获取名字
 	:return:
 	"""
-	if stk_code in ['sh', 'sz', 'cyb', 'zxb']:
-		return {
-			'sh': '上证指数',
-			'sz': '深成指',
-			'cyb': '创业板',
-			'zxb': '中小板'
-		}.get(stk_code)
-	else:
-		try:
-			return stk_info_df[stk_info_df['code'] == stk_code]['name'].values[0]
-		except:
-			return stk_code
+    if stk_code in ['sh', 'sz', 'cyb', 'zxb']:
+        return {
+            'sh': '上证指数',
+            'sz': '深成指',
+            'cyb': '创业板',
+            'zxb': '中小板'
+        }.get(stk_code)
+    else:
+        try:
+            return stk_info_df[stk_info_df['code'] == stk_code]['name'].values[0]
+        except:
+            return stk_code
 
 
 def bs_opt(stk_code, price, amount, opt, record_info, date, debug=False):
-	"""
+    """
 	record_info 格式范例如下：
 
 		record_info = {
@@ -61,54 +64,55 @@ def bs_opt(stk_code, price, amount, opt, record_info, date, debug=False):
 	:param date :           用来计算前后两次操作的间隔
 	:return:
 	"""
-	if opt == 'buy':
+    if opt == 'buy':
 
-		fee = cal_exchange_fee(stk_code=stk_code, stk_amount=amount, stk_price=price, buy=True)
-		totalcost = price*amount + fee
+        fee = cal_exchange_fee(stk_code=stk_code, stk_amount=amount, stk_price=price, buy=True)
+        totalcost = price * amount + fee
 
-		if record_info['money_remain'] >= totalcost:
-			record_info['amount_remain'] = record_info['amount_remain'] + amount
-			record_info['money_remain'] = record_info['money_remain'] - totalcost
-			record_info['BS_last'] = 'buy'
-			record_info['BS_real'] = 'buy'
-			record_info['price_last'] = price
+        if record_info['money_remain'] >= totalcost:
+            record_info['amount_remain'] = record_info['amount_remain'] + amount
+            record_info['money_remain'] = record_info['money_remain'] - totalcost
+            record_info['BS_last'] = 'buy'
+            record_info['BS_real'] = 'buy'
+            record_info['price_last'] = price
 
-			# 更新“上次操作日期”、“连续次数”
-			record_info['last_opt_date'] = date
-			record_info['B_continue'] = record_info['B_continue'] + 1
-			record_info['S_continue'] = 1
-		else:
-			record_info['BS_real'] = 'NO_OPT'
-			if debug:
-				print('函数 BS_opt：已无钱加仓了！')
+            # 更新“上次操作日期”、“连续次数”
+            record_info['last_opt_date'] = date
+            record_info['B_continue'] = record_info['B_continue'] + 1
+            record_info['S_continue'] = 1
+        else:
+            record_info['BS_real'] = 'NO_OPT'
+            if debug:
+                print('函数 BS_opt：已无钱加仓了！')
 
-	elif opt == 'sale':
+    elif opt == 'sale':
 
-		if record_info['amount_remain'] >= amount:
-			record_info['amount_remain'] = record_info['amount_remain'] - amount
-			record_info['money_remain'] = record_info['money_remain'] + price * amount - cal_exchange_fee(stk_code=stk_code, stk_amount=amount, stk_price=price, buy=False)
-			record_info['BS_last'] = 'sale'
-			record_info['BS_real'] = 'sale'
-			record_info['price_last'] = price
+        if record_info['amount_remain'] >= amount:
+            record_info['amount_remain'] = record_info['amount_remain'] - amount
+            record_info['money_remain'] = record_info['money_remain'] + price * amount - cal_exchange_fee(
+                stk_code=stk_code, stk_amount=amount, stk_price=price, buy=False)
+            record_info['BS_last'] = 'sale'
+            record_info['BS_real'] = 'sale'
+            record_info['price_last'] = price
 
-			# 更新BS操作的连续次数
-			record_info['last_opt_date'] = date
-			record_info['B_continue'] = 1
-			record_info['S_continue'] = record_info['S_continue'] + 1
+            # 更新BS操作的连续次数
+            record_info['last_opt_date'] = date
+            record_info['B_continue'] = 1
+            record_info['S_continue'] = record_info['S_continue'] + 1
 
-		else:
-			record_info['BS_real'] = 'NO_OPT'
-			if debug:
-				print('函数 BS_opt：已无stk可卖！')
-	else:
-		if debug:
-			print('函数 BS_opt：error！不识别的操作！')
+        else:
+            record_info['BS_real'] = 'NO_OPT'
+            if debug:
+                print('函数 BS_opt：已无stk可卖！')
+    else:
+        if debug:
+            print('函数 BS_opt：error！不识别的操作！')
 
-	return record_info
+    return record_info
 
 
 def which_market_stk_in(stk_code):
-	"""
+    """
 	判断是沪市还是深市
 	:param stk_code:
 	:return: sh，sz
@@ -116,19 +120,20 @@ def which_market_stk_in(stk_code):
 			不识别的stk代码返回空字符串
 	"""
 
-	if stk_code[0:2] == '60':
-		return 'sh'
+    if stk_code[0:2] == '60':
+        return 'sh'
 
-	elif stk_code[0:2] == '00' or stk_code[0:3] == '300':
-		return 'sz'
+    elif stk_code[0:2] == '00' or stk_code[0:3] == '300':
+        return 'sz'
 
-	else:
-		print('函数 WhichMarketStkIn：不识别的stk代码：'+stk_code)
-		return ''
+    else:
+        print('函数 WhichMarketStkIn：不识别的stk代码：' + stk_code)
+        return ''
 
 
-def cal_exchange_fee(stk_code, stk_amount, stk_price, buy=True, commissionRatio=0.00025, stampTaxRatio=0.001, debug=False):
-	"""
+def cal_exchange_fee(stk_code, stk_amount, stk_price, buy=True, commissionRatio=0.00025, stampTaxRatio=0.001,
+                     debug=False):
+    """
 	计算每笔交易的费用
 	:param stk_code:
 	:param stk_amount:
@@ -136,92 +141,92 @@ def cal_exchange_fee(stk_code, stk_amount, stk_price, buy=True, commissionRatio=
 	:return:
 	"""
 
-	# 计算当前交易总价格
-	price_total = stk_amount*stk_price
+    # 计算当前交易总价格
+    price_total = stk_amount * stk_price
 
-	site = which_market_stk_in(stk_code)
+    site = which_market_stk_in(stk_code)
 
-	if site == '':
-		if debug:
-			print('函数 calExchangeFee：无法识别stk所在交易所！')
-		return -1
+    if site == '':
+        if debug:
+            print('函数 calExchangeFee：无法识别stk所在交易所！')
+        return -1
 
-	# 过户费 上交所每1000股收费1元
-	transferFee = math.ceil(stk_amount / 1000) * 1
+    # 过户费 上交所每1000股收费1元
+    transferFee = math.ceil(stk_amount / 1000) * 1
 
-	# 佣金
-	commission = stk_amount * stk_price * commissionRatio
+    # 佣金
+    commission = stk_amount * stk_price * commissionRatio
 
-	if commission < 5:
-		commission = 5
+    if commission < 5:
+        commission = 5
 
-	# 印花税
-	stampTax = stk_amount*stk_price*stampTaxRatio
+    # 印花税
+    stampTax = stk_amount * stk_price * stampTaxRatio
 
-	# -------------------------------------------- 买入时 ----------------------------------------
-	if buy:
-		if site=='sh':
-			if debug:
-				print('函数 calExchangeFee：'+'\n'+
-					  # '交易stk：'+getNameByStkCode(g_total_stk_info_mysql, stk_code)+'\n'+
-					  '所在交易所：'+{'sh':'上交所','sz':'深交所'}.get(site)+'\n'+
-					  '买入卖出：'+'买入'+'\n'+
-					  '印花税：'+'无'+'\n'+
-					  '过户费：'+str(transferFee)+'\n'+
-					  '佣金：'+str(commission)+'\n'+
-					  '费用总计：'+str(transferFee+commission)+'\n')
+    # -------------------------------------------- 买入时 ----------------------------------------
+    if buy:
+        if site == 'sh':
+            if debug:
+                print('函数 calExchangeFee：' + '\n' +
+                      # '交易stk：'+getNameByStkCode(g_total_stk_info_mysql, stk_code)+'\n'+
+                      '所在交易所：' + {'sh': '上交所', 'sz': '深交所'}.get(site) + '\n' +
+                      '买入卖出：' + '买入' + '\n' +
+                      '印花税：' + '无' + '\n' +
+                      '过户费：' + str(transferFee) + '\n' +
+                      '佣金：' + str(commission) + '\n' +
+                      '费用总计：' + str(transferFee + commission) + '\n')
 
-			# 沪市买入 佣金 + 过户费
-			return transferFee+commission
+            # 沪市买入 佣金 + 过户费
+            return transferFee + commission
 
-		else:
-			if debug:
-				print('函数 calExchangeFee：'+'\n'+
-					  # '交易stk：'+getNameByStkCode(g_total_stk_info_mysql, stk_code)+'\n'+
-					  '所在交易所：'+{'sh':'上交所','sz':'深交所'}.get(site)+'\n'+
-					  '买入卖出：'+'买入'+'\n'+
-					  '印花税：'+'无'+'\n'+
-					  '过户费：'+'无'+'\n'+
-					  '佣金：'+str(commission)+'\n'+
-					  '费用总计：'+str(commission)+'\n')
+        else:
+            if debug:
+                print('函数 calExchangeFee：' + '\n' +
+                      # '交易stk：'+getNameByStkCode(g_total_stk_info_mysql, stk_code)+'\n'+
+                      '所在交易所：' + {'sh': '上交所', 'sz': '深交所'}.get(site) + '\n' +
+                      '买入卖出：' + '买入' + '\n' +
+                      '印花税：' + '无' + '\n' +
+                      '过户费：' + '无' + '\n' +
+                      '佣金：' + str(commission) + '\n' +
+                      '费用总计：' + str(commission) + '\n')
 
-			# 深市买入 佣金
-			return commission
+            # 深市买入 佣金
+            return commission
 
-	# ------------------------------ 卖出时 ------------------------------------
-	else:
+    # ------------------------------ 卖出时 ------------------------------------
+    else:
 
-		if site == 'sh':
-			if debug:
-				print('函数 calExchangeFee：' + '\n' +
-					  # '交易stk：' + getNameByStkCode(g_total_stk_info_mysql, stk_code) + '\n' +
-					  '所在交易所：' + {'sh': '上交所', 'sz': '深交所'}.get(site) + '\n' +
-					  '买入卖出：' + '卖出' + '\n' +
-					  '印花税：' + str(stampTax) + '\n' +
-					  '过户费：' + str(transferFee) + '\n' +
-					  '佣金：' + str(commission) + '\n' +
-					  '费用总计：' + str(transferFee + commission+stampTax) + '\n')
+        if site == 'sh':
+            if debug:
+                print('函数 calExchangeFee：' + '\n' +
+                      # '交易stk：' + getNameByStkCode(g_total_stk_info_mysql, stk_code) + '\n' +
+                      '所在交易所：' + {'sh': '上交所', 'sz': '深交所'}.get(site) + '\n' +
+                      '买入卖出：' + '卖出' + '\n' +
+                      '印花税：' + str(stampTax) + '\n' +
+                      '过户费：' + str(transferFee) + '\n' +
+                      '佣金：' + str(commission) + '\n' +
+                      '费用总计：' + str(transferFee + commission + stampTax) + '\n')
 
-			# 沪市卖出 佣金 + 过户费+印花税
-			return transferFee + commission
+            # 沪市卖出 佣金 + 过户费+印花税
+            return transferFee + commission
 
-		else:
-			if debug:
-				print('函数 calExchangeFee：' + '\n' +
-					  # '交易stk：' + getNameByStkCode(g_total_stk_info_mysql, stk_code) + '\n' +
-					  '所在交易所：' + {'sh': '上交所', 'sz': '深交所'}.get(site) + '\n' +
-					  '买入卖出：' + '卖出' + '\n' +
-					  '印花税：' + str(stampTax) + '\n' +
-					  '过户费：' + '无' + '\n' +
-					  '佣金：' + str(commission) + '\n' +
-					  '费用总计：' + str(commission+stampTax) + '\n')
+        else:
+            if debug:
+                print('函数 calExchangeFee：' + '\n' +
+                      # '交易stk：' + getNameByStkCode(g_total_stk_info_mysql, stk_code) + '\n' +
+                      '所在交易所：' + {'sh': '上交所', 'sz': '深交所'}.get(site) + '\n' +
+                      '买入卖出：' + '卖出' + '\n' +
+                      '印花税：' + str(stampTax) + '\n' +
+                      '过户费：' + '无' + '\n' +
+                      '佣金：' + str(commission) + '\n' +
+                      '费用总计：' + str(commission + stampTax) + '\n')
 
-			# 深市卖出 佣金+印花税
-			return commission+stampTax
+            # 深市卖出 佣金+印花税
+            return commission + stampTax
 
 
 def plot_op_result(df):
-	"""
+    """
 	打印BS操作效果
 	列名字：
 		origin_money    ：不使用策略时的效益
@@ -232,68 +237,125 @@ def plot_op_result(df):
 	:param df:
 	:return:
 	"""
-	sh_index = df
+    sh_index = df
 
-	fig, ax = plt.subplots(nrows=3, ncols=1)
-	ax[0].plot(range(len(sh_index['date'])), sh_index['close'], 'b--')
+    fig, ax = plt.subplots(nrows=3, ncols=1)
+    ax[0].plot(range(len(sh_index['date'])), sh_index['close'], 'b--')
 
-	# 打印BS操作
-	tuple_bs = list(zip(range(len(sh_index['date'])), sh_index['BS'], sh_index['close']))
+    # 打印BS操作
+    tuple_bs = list(zip(range(len(sh_index['date'])), sh_index['BS'], sh_index['close']))
 
-	tuple_b = list(filter(lambda x: x[1] == 'buy', tuple_bs))
-	ax[0].plot(list(map(lambda x: x[0], tuple_b)), list(map(lambda x: x[2], tuple_b)), 'r*', label='buy')
+    tuple_b = list(filter(lambda x: x[1] == 'buy', tuple_bs))
+    ax[0].plot(list(map(lambda x: x[0], tuple_b)), list(map(lambda x: x[2], tuple_b)), 'r*', label='buy')
 
-	tuple_s = list(filter(lambda x: x[1] == 'sale', tuple_bs))
-	ax[0].plot(list(map(lambda x: x[0], tuple_s)), list(map(lambda x: x[2], tuple_s)), 'g*', label='sale')
+    tuple_s = list(filter(lambda x: x[1] == 'sale', tuple_bs))
+    ax[0].plot(list(map(lambda x: x[0], tuple_s)), list(map(lambda x: x[2], tuple_s)), 'g*', label='sale')
 
-	# 打印对比
-	ax[1].plot(range(len(sh_index['date'])), sh_index['origin_money'], 'b--', label='no_use_strategy')
-	ax[1].plot(range(len(sh_index['date'])), sh_index['strategy_money'], 'r--', label='use_strategy')
+    # 打印对比
+    ax[1].plot(range(len(sh_index['date'])), sh_index['origin_money'], 'b--', label='no_use_strategy')
+    ax[1].plot(range(len(sh_index['date'])), sh_index['strategy_money'], 'r--', label='use_strategy')
 
-	# 打印stk数量和剩余money
-	ax[2].plot(range(len(sh_index['date'])), normal01(sh_index['money_remain']), 'b--', label='剩余money')
-	# ax[2].plot(range(len(sh_index['date'])), normal01(sh_index['amount_remain']), 'r--', label='剩余stk数量')
+    # 打印stk数量和剩余money
+    ax[2].plot(range(len(sh_index['date'])), normal01(sh_index['money_remain']), 'b--', label='剩余money')
+    # ax[2].plot(range(len(sh_index['date'])), normal01(sh_index['amount_remain']), 'r--', label='剩余stk数量')
 
-	# 整理x轴label
-	x_label = sh_index.apply(lambda x: str(x['date'])[2:].replace('-', ''), axis=1)
+    # 整理x轴label
+    x_label = sh_index.apply(lambda x: str(x['date'])[2:].replace('-', ''), axis=1)
 
-	ax[0] = addXticklabel(ax[0], x_label, 40, rotation=45, fontsize=8)
-	ax[1] = addXticklabel(ax[1], x_label, 40, rotation=45, fontsize=8)
-	ax[2] = addXticklabel(ax[2], x_label, 40, rotation=45, fontsize=8)
-	# ax[3] = addXticklabel(ax[3], x_label, 40, rotation=45, fontsize=8)
+    ax[0] = addXticklabel(ax[0], x_label, 40, rotation=45, fontsize=8)
+    ax[1] = addXticklabel(ax[1], x_label, 40, rotation=45, fontsize=8)
+    ax[2] = addXticklabel(ax[2], x_label, 40, rotation=45, fontsize=8)
+    # ax[3] = addXticklabel(ax[3], x_label, 40, rotation=45, fontsize=8)
 
-	for ax_sig in ax:
-		ax_sig.legend(loc='best')
+    for ax_sig in ax:
+        ax_sig.legend(loc='best')
 
-	plt.show()
+    plt.show()
 
 
 def cal_today_ochl(df_m):
-	"""
+    """
 	df_m 应该包含date字段
 	:param df_m:
 	:return:
 	"""
-	list_group = list(df_m.groupby('date'))
-	list_group_sort = sorted(list_group, key=lambda x: x[0], reverse=False)
+    list_group = list(df_m.groupby('date'))
+    list_group_sort = sorted(list_group, key=lambda x: x[0], reverse=False)
 
-	today_df = list_group_sort[-1][1]
+    today_df = list_group_sort[-1][1]
 
-	o = today_df.head(1)['open'][0]
-	c = today_df.tail(1)['close'][0]
+    o = today_df.head(1)['open'][0]
+    c = today_df.tail(1)['close'][0]
 
-	array = today_df.loc[:, ['open', 'close', 'high', 'low']].values
-	h = np.max(array)
-	l = np.min(array)
+    array = today_df.loc[:, ['open', 'close', 'high', 'low']].values
+    h = np.max(array)
+    l = np.min(array)
 
-	return {
-		'open': o,
-		'close': c,
-		'high': h,
-		'low': l
-	}
+    return {
+        'open': o,
+        'close': c,
+        'high': h,
+        'low': l
+    }
 
+
+class RetestReseau:
+    """
+    与网格策略回测相关子函数的类
+    """
+    def __init__(self, stk_code, debug=False):
+        self.stk_code = stk_code
+        self.debug = debug
+
+        self.data_day = pd.DataFrame()
+        self.data_minute = pd.DataFrame()
+
+    def read_pcr(self):
+        reseau_judge = ReseauJudge(stk_code=self.stk_code,
+                                   opt_record_=OptRecord(opt_record_file_url_=opt_record_file_url, stk_code=self.stk_code),
+                                   debug=self.debug)
+
+        return reseau_judge.get_pcr()
+
+    @staticmethod
+    def judge_single_stk_sub(reseau, rsv, current_price, stk_price_last, min_reseau, sar_diff, sar_diff_day):
+
+        # 实时计算价差，用于“波动提示”和“最小网格限制”
+        price_diff = current_price - stk_price_last
+        price_diff_ratio = price_diff / stk_price_last
+
+        # 调节 buy 和 sale 的 threshold
+        thh_sale = reseau * 2 * rsv
+        thh_buy = reseau * 2 * (1 - rsv)
+
+        if math.fabs((current_price - stk_price_last) / stk_price_last) < min_reseau:
+            return 0, '未触及reseau'
+        elif (sar_diff >= 0) & (sar_diff_day >= 0) & ((current_price - stk_price_last) / stk_price_last > min_reseau):
+            return 1, 'sale'
+        elif (sar_diff <= 0) & (sar_diff_day <= 0) & ((current_price - stk_price_last) / stk_price_last < -min_reseau):
+            return 2, 'buy'
+        else:
+            return -1, 'no opt'
+
+    def prepare_data(self, period='5m', count=48*100):
+        """
+        准备数据
+        :return:
+        """
+        jq_login()
+
+        # 准备数据
+        df_5m = get_k_data_JQ(self.stk_code, count=count, freq=period)
+        df_5m['date'] = df_5m.apply(lambda x: str(x['datetime'])[:10], axis=1)
+        df_day = get_k_data_JQ(self.stk_code, count=8 * 100, freq='30m').sort_index(ascending=True)
+
+        # 想day data 中 增加必要index
+        self.data_day = add_stk_index_to_df(df_day)
+
+        # 增加必要index
+        self.data_minute = add_stk_index_to_df(df_5m)
+
+        logout()
 
 if __name__ == '__main__':
-
-	end = 0
+    end = 0
