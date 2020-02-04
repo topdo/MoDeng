@@ -2,15 +2,13 @@
 
 import matplotlib
 matplotlib.use('agg')
-import tushare as ts
 import jqdatasdk as jq
 from CornerDetectAndAutoEmail.Sub import genStkPicForQQ, genStkIdxPicForQQ
 from RelativeRank.Sub import get_k_data_JQ
 
 from pylab import *
 
-from SDK.MyTimeOPT import get_current_date_str, add_date_str
-from SendMsgByQQ.SendPicByQQ import send_pic_qq
+from SDK.SendMsgByQQ.SendPicByQQ import send_pic_qq
 
 
 def printStkListPic2QQ(code_list, towho, title=None):
@@ -56,7 +54,7 @@ def sendBillBoardPic2QQ():
 
 if __name__ == '__main__':
 
-    from JQData_Test.auth_info import *
+    # from JQData_Test.auth_info import *
 
     sendBillBoardPic2QQ()
 

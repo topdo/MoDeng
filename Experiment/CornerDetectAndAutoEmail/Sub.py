@@ -203,7 +203,7 @@ def genStkIdxPic(stk_df, stk_code, current_date, root_save_dir, pic_name='stk_id
     'upper', 'middle', 'lower' 
     'MOM'
     """
-    stk_df = addStkIndexToDf(stk_df).tail(60)
+    stk_df = add_stk_index_to_df(stk_df).tail(60)
 
     fig, ax = plt.subplots(nrows=5, ncols=1)
 
@@ -262,7 +262,7 @@ def genStkIdxPicForQQ(stk_df, stk_code=''):
     'upper', 'middle', 'lower' 
     'MOM'
     """
-    stk_df = addStkIndexToDf(stk_df).tail(60)
+    stk_df = add_stk_index_to_df(stk_df).tail(60)
 
     fig, ax = plt.subplots(nrows=5, ncols=1)
 
@@ -485,51 +485,51 @@ def callback():
     end=0
 
 
-def addStkIndexToDf(stk_df):
-    """
-    向含有“收盘价（close）”的df中添加相关stk指标
-
-    :param stk_df:
-    :return:
-    """
-    """
-    准备指标：
-    MACD
-    RSI
-    KD
-    SAR
-    BRAR
-    BIAS
-    """
-    stk_df['MACD'], stk_df['MACDsignal'], stk_df['MACDhist'] = talib.MACD(stk_df.close,
-                                                                          fastperiod=12, slowperiod=26,
-                                                                          signalperiod=9)
-
-    # 添加rsi信息
-    stk_df['RSI5'] = talib.RSI(stk_df.close, timeperiod=5)
-    stk_df['RSI12'] = talib.RSI(stk_df.close, timeperiod=12)
-    stk_df['RSI30'] = talib.RSI(stk_df.close, timeperiod=30)
-
-    # 添加SAR指标
-    stk_df['SAR'] = talib.SAR(stk_df.high, stk_df.low, acceleration=0.05, maximum=0.2)
-
-    # 添加KD指标
-    stk_df['slowk'], stk_df['slowd'] = talib.STOCH(stk_df.high,
-                                                   stk_df.low,
-                                                   stk_df.close,
-                                                    fastk_period=9,
-                                                    slowk_period=3,
-                                                    slowk_matype=0,
-                                                    slowd_period=3,
-                                                    slowd_matype=0)
-
-    # 添加布林线
-    stk_df['upper'], stk_df['middle'], stk_df['lower'] = talib.BBANDS(stk_df['close'], matype=MA_Type.T3)
-
-    # 计算close动量
-    stk_df['MOM'] = talib.MOM(stk_df['close'], timeperiod=5)
-
-    return stk_df
+# def add_stk_index_to_df(stk_df):
+#     """
+#     向含有“收盘价（close）”的df中添加相关stk指标
+#
+#     :param stk_df:
+#     :return:
+#     """
+#     """
+#     准备指标：
+#     MACD
+#     RSI
+#     KD
+#     SAR
+#     BRAR
+#     BIAS
+#     """
+#     stk_df['MACD'], stk_df['MACDsignal'], stk_df['MACDhist'] = talib.MACD(stk_df.close,
+#                                                                           fastperiod=12, slowperiod=26,
+#                                                                           signalperiod=9)
+#
+#     # 添加rsi信息
+#     stk_df['RSI5'] = talib.RSI(stk_df.close, timeperiod=5)
+#     stk_df['RSI12'] = talib.RSI(stk_df.close, timeperiod=12)
+#     stk_df['RSI30'] = talib.RSI(stk_df.close, timeperiod=30)
+#
+#     # 添加SAR指标
+#     stk_df['SAR'] = talib.SAR(stk_df.high, stk_df.low, acceleration=0.05, maximum=0.2)
+#
+#     # 添加KD指标
+#     stk_df['slowk'], stk_df['slowd'] = talib.STOCH(stk_df.high,
+#                                                    stk_df.low,
+#                                                    stk_df.close,
+#                                                     fastk_period=9,
+#                                                     slowk_period=3,
+#                                                     slowk_matype=0,
+#                                                     slowd_period=3,
+#                                                     slowd_matype=0)
+#
+#     # 添加布林线
+#     stk_df['upper'], stk_df['middle'], stk_df['lower'] = talib.BBANDS(stk_df['close'], matype=MA_Type.T3)
+#
+#     # 计算close动量
+#     stk_df['MOM'] = talib.MOM(stk_df['close'], timeperiod=5)
+#
+#     return stk_df
 
 
 def genSingleStkTrainData(stk_K_df, M_int, stk_code, stk_name):
@@ -546,7 +546,7 @@ def genSingleStkTrainData(stk_K_df, M_int, stk_code, stk_name):
     stk_df = sh_index.sort_values(by='date', ascending=True)
 
     # 添加指标
-    stk_df = addStkIndexToDf(stk_df)
+    stk_df = add_stk_index_to_df(stk_df)
 
     # 计算收盘价均线，根据均线计算拐点
     stk_df['M'+str(M_int)] = stk_df['close'].rolling(window=M_int, center=True).mean()
